@@ -1,3 +1,4 @@
+import os
 from typing import Union
 from Classes import Author
 from Document import ArxivDocument, RedditDocument
@@ -43,15 +44,25 @@ class Corpus:
 
         print("\n".join(list(map(repr, docs))))
 
-    def save(self, file_name):
-        with open(file_name, "wb") as f:
-            pickle.dump(self, f)
-            print("Corpus saved.")
+    def save(self, file_loc):
+        try:
+            with open(file_loc, "wb") as f:
+                pickle.dump(self, f)
+                print(f"Corpus saved to {file_loc}.")
+        except Exception as e:
+            print(f"An error occurred while saving the corpus: {e}")
 
     @staticmethod
-    def load(file_name):
-        with open(file_name, "rb") as f:
-            return pickle.load(f)
+    def load(file_loc):
+        if not os.path.exists(file_loc):
+            print(f"File not found: {file_loc}")
+            return None
+        try:
+            with open(file_loc, "rb") as f:
+                return pickle.load(f)
+        except Exception as e:
+            print(f"An error occurred while loading the corpus: {e}")
+            return None
 
     def __repr__(self):
         docs = list(self.id2doc.values())

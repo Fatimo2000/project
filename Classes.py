@@ -18,7 +18,7 @@ class Document:
     # =============== 2.2 : REPRESENTATIONS ===============
     # Fonction qui renvoie le texte à afficher lorsqu'on tape repr(classe)
     def __repr__(self):
-        return f"Titre : {self.titre}\nAuteur : {self.auteur}\nDate : {self.date}\nURL : {self.url}\nTexte : {self.texte}\n"
+        return f"Titre: {self.titre}\nAuteur: {self.auteur}\nDate: {self.date}\nURL: {self.url}\nTexte: {self.texte}\nType: {self.type}\n"
 
     # Fonction qui renvoie le texte à afficher lorsqu'on tape str(classe)
     def __str__(self):
@@ -42,6 +42,6 @@ class Author:
 
     def __str__(self):
         return f"Auteur : {self.name}\t# productions : {self.ndoc}"
-    
+
     def __repr__(self):
         return self.name
