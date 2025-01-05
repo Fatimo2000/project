@@ -5,7 +5,6 @@ from data.download_data import load_data
 from Document import DocumentFactory
 
 # =============== 2.3 : MANIPS ===============
-import datetime
 from tqdm import tqdm
 
 # =============== 2.4, 2.5 : CLASSE AUTEURS ===============
@@ -40,7 +39,11 @@ for i, doc in enumerate(docs):
 
 collection = []
 factory = DocumentFactory()
-for _, post in data.iterrows():
+for _, post in tqdm(
+    iterable=data.iterrows(),
+    unit="post",
+    desc="Creating documents from posts ...",
+):
     if (
         post.source == "ArXiv"
     ):  # Les fichiers de ArXiv ou de Reddit sont pas formatés de la même manière à ce stade.
@@ -109,4 +112,4 @@ with open("./data/corpus.pkl", "rb") as f:
     corpus = pickle.load(f)
 
 # La variable est réapparue
-print(corpus.show())
+# print(corpus.show())

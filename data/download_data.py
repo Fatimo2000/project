@@ -1,7 +1,7 @@
 import os
 import dotenv
 import datetime
-
+from tqdm import tqdm
 # Correction de G. Poux-Médard, 2021-2022
 
 # =============== PARTIE 1 =============
@@ -44,10 +44,12 @@ def get_data_from_reddit(max_results):
 
     # Récupération du texte
     docs_bruts = []
-    for i, post in enumerate(hot_posts):
-        if i % 10 == 0:
-            print("Reddit:", i, "/", max_results)
-
+    for post in tqdm(
+        iterable=hot_posts,
+        total=max_results,
+        unit="post",
+        desc="Downloading posts from reddit ...",
+    ):
         titre = post.title.replace("\n", "")
         auteur = str(post.author)
         date = datetime.datetime.fromtimestamp(post.created).strftime("%Y/%m/%d")
@@ -65,7 +67,7 @@ def get_data_from_reddit(max_results):
             "source": "Reddit",
         }
         docs_bruts.append(entry)
-        
+
     return docs_bruts
 
 
@@ -82,9 +84,12 @@ def get_data_from_arxiv(max_results):
 
     # Ajout résumés à la liste
     docs_bruts = []
-    for i, entry in enumerate(data["feed"]["entry"]):
-        if i % 10 == 0:
-            print("ArXiv:", i, "/", max_results)
+    for entry in tqdm(
+        iterable=data["feed"]["entry"],
+        total=max_results,
+        unit="post",
+        desc="Downloading posts from arxiv ...",
+    ):
         titre = entry["title"].replace("\n", "")
         date = datetime.datetime.strptime(
             entry["published"], "%Y-%m-%dT%H:%M:%SZ"
@@ -115,7 +120,7 @@ def get_data_from_arxiv(max_results):
     return docs_bruts
 
 
-def download_data(max_reddit_results=10, max_arxiv_results=10):
+def download_data(max_reddit_results=50, max_arxiv_results=50):
     df_data = [
         *get_data_from_reddit(max_results=max_reddit_results),
         *get_data_from_arxiv(max_results=max_arxiv_results),
