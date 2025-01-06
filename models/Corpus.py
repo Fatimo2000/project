@@ -2,8 +2,8 @@ import os
 from collections import defaultdict
 from typing import Union
 import pandas as pd
-from Classes import Author
-from Document import ArxivDocument, RedditDocument
+from models.Classes import Author
+from models.Document import ArxivDocument, RedditDocument
 import pickle
 import re
 
