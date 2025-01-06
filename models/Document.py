@@ -1,4 +1,4 @@
-from Classes import Document
+from models.Classes import Document
 
 
 class DocumentFactory:

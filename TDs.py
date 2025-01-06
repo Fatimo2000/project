@@ -2,17 +2,17 @@ from data.download_data import load_data
 
 # =============== PARTIE 2 =============
 # =============== 2.1, 2.2 : CLASSE DOCUMENT ===============
-from Document import DocumentFactory
+from models.Document import DocumentFactory
 
 # =============== 2.3 : MANIPS ===============
 from tqdm import tqdm
 
 # =============== 2.4, 2.5 : CLASSE AUTEURS ===============
-from Classes import Author
+from models.Classes import Author
 
 # =============== 2.7, 2.8 : CORPUS ===============
 # from Corpus import Corpus
-from Corpus import Corpus
+from models.Corpus import Corpus
 
 # =============== 2.9 : SAUVEGARDE ===============
 import pickle
