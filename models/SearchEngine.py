@@ -1,5 +1,6 @@
 from collections import defaultdict
-from models import Corpus
+from tqdm import tqdm
+from models import Corpus, Document
 from scipy import sparse
 import pandas as pd
 import numpy as np
@@ -50,7 +51,7 @@ class SearchEngine:
             }
             for idx, word in enumerate(sorted(word_count.keys()))
         }
-
+        print("SearchEnginge Vocabulary Built.")
         return vocab
 
     def build_term_frequency_matrix(self) -> sparse.csr_matrix:
@@ -86,9 +87,11 @@ class SearchEngine:
                 col_indices.append(word_index)
 
         # Create the sparse matrix
-        return sparse.csr_matrix(
+        mat = sparse.csr_matrix(
             (data, (row_indices, col_indices)), shape=(num_docs, num_words)
         )
+        print("SearchEnginge Term Frequency Matrix built.")
+        return mat
 
     def build_tfidf_matrix(self) -> sparse.csr_matrix:
         """
@@ -99,22 +102,25 @@ class SearchEngine:
         """
         num_docs = self.corpus.ndoc
 
+        # mat_tf = self.build_term_frequency_matrix()
         # Get the term frequency matrix
-        tf_matrix = self.mat_tf.toarray()
+        tf_matrix: sparse.csr_matrix = self.mat_tf
 
         # Calculate the document frequency for each word
         doc_frequencies = np.array(
             [self.vocab[word]["document_frequency"] for word in self.vocab]
         )
 
-        # Calculate the Inverse Document Frequency (IDF) for each word
         idf = np.log(num_docs / (1 + doc_frequencies))
 
-        # Calculate the TF-IDF matrix
-        tfxidf_matrix = tf_matrix * idf
+        # Create a diagonal matrix for IDF values
+        idf_matrix = sparse.diags(idf)
 
-        # Convert to sparse matrix format
-        return sparse.csr_matrix(tfxidf_matrix)
+        # Calculate the TF-IDF matrix
+        tfxidf_matrix = tf_matrix.dot(idf_matrix)
+
+        print("SearchEngine TfIdf Matrix Built.")
+        return tfxidf_matrix
 
     def vectorize_query(self, keywords: str) -> np.ndarray:
         """
@@ -175,7 +181,11 @@ class SearchEngine:
         scores = defaultdict(float)
 
         # Calculate similarity scores for each document
-        for doc_id in range(self.corpus.ndoc):
+        for doc_id in tqdm(
+            range(self.corpus.ndoc),
+            desc="Searching ...",
+            unit="Docs",
+        ):
             document_vector = self.mat_tfxidf[
                 doc_id, :
             ]  # Get the TF-IDF vector for the document
@@ -187,13 +197,13 @@ class SearchEngine:
         # Prepare the results DataFrame
         results = []
         for doc_id, score in sorted_docs[:top_n]:
+            document: Document.Document = self.corpus.id2doc[doc_id + 1]
             results.append(
                 {
                     "document_index": doc_id + 1,  # Adjusting for one-based index
                     "score": score,
-                    "document": self.corpus.id2doc[
-                        doc_id + 1
-                    ],  # Adjusting for one-based index
+                    "document": document,  # Adjusting for one-based index
+                    "author": document.auteur,
                 }
             )
 
