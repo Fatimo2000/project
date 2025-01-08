@@ -1,7 +1,9 @@
 import os
 from collections import defaultdict
+from datetime import datetime
 from typing import Union
 import pandas as pd
+import numpy as np
 from models.Classes import Author
 from models.Document import ArxivDocument, RedditDocument
 import pickle
@@ -12,15 +14,9 @@ import re
 class Corpus:
     _instance = None
 
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(Corpus, cls).__new__(cls)
-        return cls._instance
-
     def __init__(self, nom):
-        if not hasattr(self, "initialized"):
-            self.initialized = True
-            self.nom = nom
+        self.initialized = True
+        self.nom = nom
         self.concatenated_string = None
         self.authors = {}
         self.aut2id = {}
@@ -114,6 +110,9 @@ class Corpus:
         clean_text = re.sub(r"\d+", "", text)
         return clean_text
 
+    def get_documents_by_type(self, doc_type: str):
+        return [doc for doc in self.id2doc.values() if doc.getType() == doc_type]
+
     def build_vocabulary(self):
         word_count = defaultdict(int)  # To count total occurrences of each word
         doc_count = defaultdict(int)  # To count document frequency of each word
@@ -149,6 +148,186 @@ class Corpus:
         freq_table = self.build_vocabulary()
         most_frequent_words = freq_table.nlargest(n, "term_frequency")
         print(f"The {n} most frequent words:\n", most_frequent_words)
+
+    def group_by_time_period(self, period="year"):
+        """
+        Group documents by a specified time period and return a frequency count of words.
+
+        Parameters:
+        - period: The time period for grouping (e.g., 'year', 'month').
+
+        Returns:
+        - time_grouped: A DataFrame with time periods and word frequencies.
+        """
+        time_grouped = defaultdict(lambda: defaultdict(int))
+
+        for _, doc in self.id2doc.items():
+            # Ensure the date is a datetime object
+            if isinstance(doc.date, str):
+                doc.date = datetime.strptime(
+                    doc.date, "%Y/%m/%d"
+                )  # Adjust format as needed
+
+            # Determine the time period
+            if period == "year":
+                time_period = doc.date.year
+            elif period == "month":
+                time_period = f"{doc.date.year}-{doc.date.month:02d}"
+            else:
+                raise ValueError("Unsupported time period. Use 'year' or 'month'.")
+
+            cleaned_doc = self.clean_text(doc.texte)
+            words = cleaned_doc.split()
+            for word in words:
+                time_grouped[time_period][word] += 1
+
+        # Convert to DataFrame
+        df = pd.DataFrame.from_dict(time_grouped, orient="index").fillna(0)
+        return df
+
+    def frequency_over_time(self, word):
+        """
+        Calculate the frequency of a specific word over time.
+
+        Parameters:
+        - word: The word to track.
+
+        Returns:
+        - freq_df: DataFrame containing time periods and frequencies of the word.
+        """
+        freq_df = self.group_by_time_period()
+        word_freq = (
+            freq_df[word]
+            if word in freq_df.columns
+            else pd.Series(0, index=freq_df.index)
+        )
+        return word_freq
+
+    def calculate_tf_idf(self):
+        """
+        Calculate the TF-IDF for the words in the corpus.
+
+        Returns:
+        - tfidf_df: DataFrame containing words and their TF-IDF scores.
+        """
+        word_count = defaultdict(int)  # To count total occurrences of each word
+        doc_count = defaultdict(int)  # To count document frequency of each word
+        total_docs = self.ndoc
+
+        # Calculate term frequency (TF) and document frequency (DF)
+        for _, doc in self.id2doc.items():
+            cleaned_doc = self.clean_text(doc.texte)
+            words = cleaned_doc.split()
+            unique_words = set(words)
+
+            # Count occurrences of each word
+            for word in words:
+                word_count[word] += 1
+
+            # Count document frequency
+            for word in unique_words:
+                doc_count[word] += 1
+
+        # Calculate TF-IDF
+        tfidf_scores = {}
+        for word, count in word_count.items():
+            tf = count / sum(word_count.values())  # Term frequency
+            idf = np.log(
+                (total_docs + 1) / (doc_count[word] + 1)
+            )  # Inverse document frequency with smoothing
+            tfidf_scores[word] = tf * idf
+
+        # Create a DataFrame for TF-IDF scores
+        tfidf_df = pd.DataFrame(list(tfidf_scores.items()), columns=["word", "tfidf"])
+        return tfidf_df.sort_values(by="tfidf", ascending=False)
+
+    def query_documents(
+        self, keywords=None, authors=None, doc_type=None, start_date=None, end_date=None
+    ):
+        """
+        Query the corpus for documents based on various criteria.
+
+        Parameters:
+        - keywords: A list of keywords to search for in the document texts.
+        - authors: A list of authors to filter documents by.
+        - doc_type: A specific document type to filter by (e.g., "Reddit" or "Arxiv").
+        - start_date: The start date for filtering documents (datetime object).
+        - end_date: The end date for filtering documents (datetime object).
+
+        Returns:
+        - matching_docs: A list of documents that match the query criteria.
+        """
+        matching_docs = {}
+
+        for doc_id, doc in self.id2doc.items():
+            # Check author
+            if authors and doc.auteur not in authors:
+                continue
+
+            # Check document type
+            if doc_type and doc.getType() != doc_type:
+                continue
+
+            # Check date range
+            doc_date: datetime = doc.date
+            doc_date = doc_date.date()
+            if start_date and doc_date < start_date:
+                continue
+            if end_date and doc_date > end_date:
+                continue
+
+            # Check keywords
+            if keywords:
+                cleaned_doc = self.clean_text(doc.texte)
+                if not any(keyword.lower() in cleaned_doc for keyword in keywords):
+                    continue
+
+            # If all criteria are met, add the document to the results
+            matching_docs[doc_id] = doc
+
+        return matching_docs
+
+    def calculate_bm25(self, query, k1=1.5, b=0.75):
+        """
+        Calculate the BM25 score for a query against the corpus.
+
+        Parameters:
+        - query: A list of words to search for.
+        - k1: Term frequency saturation parameter.
+        - b: Length normalization parameter.
+
+        Returns:
+        - bm25_scores: A DataFrame containing words and their BM25 scores.
+        """
+        avg_doc_length = np.mean(
+            [len(self.clean_text(doc.texte).split()) for doc in self.id2doc.values()]
+        )
+        bm25_scores = defaultdict(float)
+
+        for word in query:
+            for _, doc in self.id2doc.items():
+                cleaned_doc = self.clean_text(doc.texte)
+                doc_length = len(cleaned_doc.split())
+                term_freq = cleaned_doc.split().count(word)
+                doc_freq = sum(
+                    1
+                    for d in self.id2doc.values()
+                    if word in self.clean_text(d.texte).split()
+                )
+
+                # Calculate BM25 score
+                if term_freq > 0:
+                    idf = np.log(
+                        (self.ndoc - doc_freq + 0.5) / (doc_freq + 0.5)
+                    )  # Inverse document frequency
+                    bm25_scores[word] += idf * (
+                        (term_freq * (k1 + 1))
+                        / (term_freq + k1 * (1 - b + b * (doc_length / avg_doc_length)))
+                    )
+
+        # Create a DataFrame for BM25 scores
+        bm25_df = pd.DataFrame(list(bm25_scores.items()), columns=["word", "bm25"])
+        return bm25_df.sort_values(by="bm25", ascending=False)
 
     def __repr__(self):
         docs = list(self.id2doc.values())

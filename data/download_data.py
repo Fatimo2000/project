@@ -73,7 +73,7 @@ def get_data_from_reddit(max_results):
 
 def get_data_from_arxiv(max_results):
     # Paramètres
-    query_terms = ["clustering", "Dirichlet"]
+    query_terms = ["Coronavirus"]
 
     # Requête
     url = f'http://export.arxiv.org/api/query?search_query=all:{"+".join(query_terms)}&start=0&max_results={max_results}'
@@ -120,7 +120,7 @@ def get_data_from_arxiv(max_results):
     return docs_bruts
 
 
-def download_data(max_reddit_results=50, max_arxiv_results=50):
+def download_data(max_reddit_results=1000, max_arxiv_results=1000):
     df_data = [
         *get_data_from_reddit(max_results=max_reddit_results),
         *get_data_from_arxiv(max_results=max_arxiv_results),

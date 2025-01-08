@@ -208,3 +208,72 @@ class SearchEngine:
             )
 
         return pd.DataFrame(results)
+
+    def search_with_filters(
+        self,
+        keywords: str,
+        top_n: int,
+        authors=None,
+        doc_type=None,
+        start_date=None,
+        end_date=None,
+    ) -> pd.DataFrame:
+        """
+        Searches for the given keywords in the corpus and returns the top_n documents.
+
+        Parameters:
+        - keywords (str): The keywords to search for, separated by spaces.
+        - top_n (int): The number of top documents to return.
+        - authors (list): Optional list of authors to filter by.
+        - doc_type (str): Optional document type to filter by.
+        - start_date (datetime): Optional start date for filtering documents.
+        - end_date (datetime): Optional end date for filtering documents.
+
+        Returns:
+        - DataFrame: A pandas DataFrame containing the search results.
+        """
+        # Query the corpus for documents matching the criteria
+        filtered_docs = self.corpus.query_documents(
+            keywords=keywords.split(),
+            authors=authors,
+            doc_type=doc_type,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        # If no documents match the criteria, return an empty DataFrame
+        if not filtered_docs:
+            return pd.DataFrame(
+                columns=["document_index", "score", "document", "author"]
+            )
+
+        # Vectorize the query
+        query_vector = self.vectorize_query(keywords)
+
+        # Create a list to hold document scores
+        scores = defaultdict(float)
+
+        # Calculate similarity scores for each filtered document
+        for doc_id, document in filtered_docs.items():
+            document_vector = self.mat_tfxidf[
+                doc_id - 1, :
+            ]  # Adjust for zero-based index
+            scores[doc_id] = self.cosine_similarity(query_vector, document_vector)
+
+        # Sort the documents based on scores
+        sorted_docs = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+
+        # Prepare the results DataFrame
+        results = []
+        for doc_id, score in sorted_docs[:top_n]:
+            document: Document.Document = self.corpus.id2doc[doc_id]
+            results.append(
+                {
+                    "document_index": doc_id,
+                    "score": score,
+                    "document": document,
+                    "author": document.auteur,
+                }
+            )
+
+        return pd.DataFrame(results)
