@@ -96,8 +96,8 @@ corpus = Corpus("Mon corpus")
 # Construction du corpus à partir des documents
 for doc in collection:
     corpus.add(doc)
-# corpus.show(tri="abc")
-# print(repr(corpus))
+corpus.show(tri="abc")
+print(repr(corpus))
 
 
 # Ouverture d'un fichier, puis écriture avec pickle
@@ -112,4 +112,4 @@ with open("./data/corpus.pkl", "rb") as f:
     corpus = pickle.load(f)
 
 # La variable est réapparue
-# print(corpus.show())
+print(corpus.show())
